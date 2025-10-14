@@ -4,15 +4,15 @@ import {
   Container,
   FileInput,
   Group,
-  Select,
   MultiSelect,
+  Select,
   Stack,
   Table,
   Text,
   Textarea,
   Title,
-} from '@mantine/core';
-import { notifications } from '@mantine/notifications';
+} from "@mantine/core";
+import { notifications } from "@mantine/notifications";
 import { useMemo, useState } from "react";
 
 type OvertimeData = {
@@ -50,7 +50,7 @@ const generatePrompt = (
   currentSalaryData.forEach((employee) => {
     const employeeCode = employee["従業員コード"] || "";
 
-    markdownParts.push(`## 従業員番号: ${employeeCode}\n`);
+    markdownParts.push(`# 従業員番号: ${employeeCode}\n`);
 
     // マッピングで指定されたカラムを抽出
     extractColumns.forEach((colName) => {
@@ -257,7 +257,9 @@ function App() {
               <Checkbox
                 label="フィルターを適用"
                 checked={filterApplied}
-                onChange={(event) => setFilterApplied(event.currentTarget.checked)}
+                onChange={(event) =>
+                  setFilterApplied(event.currentTarget.checked)
+                }
               />
               {filterApplied && (
                 <Group>
@@ -280,11 +282,19 @@ function App() {
                   />
                 </Group>
               )}
-              <Table striped highlightOnHover withTableBorder withColumnBorders horizontalSpacing="md">
+              <Table
+                striped
+                highlightOnHover
+                withTableBorder
+                withColumnBorders
+                horizontalSpacing="md"
+              >
                 <Table.Thead>
                   <Table.Tr>
                     {currentSalaryColumns.map((col) => (
-                      <Table.Th key={col} style={{ minWidth: '150px' }}>{col}</Table.Th>
+                      <Table.Th key={col} style={{ minWidth: "150px" }}>
+                        {col}
+                      </Table.Th>
                     ))}
                   </Table.Tr>
                 </Table.Thead>
@@ -292,7 +302,9 @@ function App() {
                   {filteredCurrentSalaryData.map((item, index) => (
                     <Table.Tr key={index}>
                       {currentSalaryColumns.map((col) => (
-                        <Table.Td key={col} style={{ minWidth: '150px' }}>{item[col] || ""}</Table.Td>
+                        <Table.Td key={col} style={{ minWidth: "150px" }}>
+                          {item[col] || ""}
+                        </Table.Td>
                       ))}
                     </Table.Tr>
                   ))}
@@ -310,19 +322,15 @@ function App() {
                 onClick={() => {
                   navigator.clipboard.writeText(generatedPrompt);
                   notifications.show({
-                    title: '成功',
-                    message: 'クリップボードにコピーしました',
-                    color: 'green',
+                    title: "成功",
+                    message: "クリップボードにコピーしました",
+                    color: "green",
                   });
                 }}
               >
                 クリップボードにコピー
               </Button>
-              <Textarea
-                value={generatedPrompt}
-                rows={20}
-                readOnly
-              />
+              <Textarea value={generatedPrompt} rows={20} readOnly />
             </>
           )}
         </Stack>
