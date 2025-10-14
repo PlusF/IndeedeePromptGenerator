@@ -1,20 +1,18 @@
-import type { Column, Row } from "@c-fo/table";
-import { Table } from "@c-fo/table";
 import {
   Button,
-  CheckBox,
-  ContentsBase,
-  FileUploader,
-  FloatingMessageBlock,
-  HStack,
-  MultiComboBox,
-  PageTitle,
-  SectionTitle,
-  SingleComboBox,
+  Checkbox,
+  Container,
+  FileInput,
+  Group,
+  Select,
+  MultiSelect,
+  Stack,
+  Table,
   Text,
-  TextArea,
-  VStack,
-} from "@c-fo/vibes";
+  Textarea,
+  Title,
+} from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { useMemo, useState } from "react";
 
 type OvertimeData = {
@@ -80,11 +78,10 @@ function App() {
   const [filterApplied, setFilterApplied] = useState<boolean>(false);
   const [filterColumn, setFilterColumn] = useState<string | null>(null);
   const [filterValues, setFilterValues] = useState<string[]>([]);
-  const [showCopiedMessage, setShowCopiedMessage] = useState<boolean>(false);
 
   // マッピングファイルを処理する関数
-  const handleMappingFileSelect = (files: File[]) => {
-    const file = files[0];
+  const handleMappingFileSelect = (file: File | null) => {
+    if (!file) return;
     setMappingFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -143,8 +140,8 @@ function App() {
   };
 
   // 現行給与ファイルを処理する関数
-  const handleCurrentSalaryFileSelect = (files: File[]) => {
-    const file = files[0];
+  const handleCurrentSalaryFileSelect = (file: File | null) => {
+    if (!file) return;
     setCurrentSalaryFile(file);
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -213,160 +210,124 @@ function App() {
   }, [overtimeData, filteredCurrentSalaryData]);
 
   return (
-    <ContentsBase>
-      <VStack mb={2}>
-        <PageTitle>Indeedee Prompt</PageTitle>
-        <SectionTitle>マッピング</SectionTitle>
-        <FileUploader
-          acceptFileTypes={["text/csv"]}
-          fileLabel=""
-          multiple={false}
-          onFileSelect={handleMappingFileSelect}
-        />
-        {mappingFile && <Text>{mappingFile.name}</Text>}
-        {overtimeData.length > 0 && (
-          <Table
-            columns={
-              [
-                {
-                  name: "freee",
-                  label: "freee",
-                  content: "freee",
-                  align: "left",
-                  widthRem: 10,
-                },
-                {
-                  name: "current",
-                  label: "現行給与",
-                  content: "現行給与",
-                  align: "left",
-                  widthRem: 10,
-                },
-              ] as Column[]
-            }
-            rows={overtimeData.map(
-              (item) =>
-                ({
-                  cells: [
-                    {
-                      columnName: "freee",
-                      content: item.freee,
-                    },
-                    {
-                      columnName: "current",
-                      content: item.current,
-                    },
-                  ],
-                } as Row)
-            )}
-            fixMode="header"
-            verticalBorder="all"
-            outerBorder="all"
+    <Container size="xl" py="xl">
+      <Stack gap="xl">
+        <Title order={1}>Indeedee Prompt</Title>
+
+        <Stack gap="md">
+          <Title order={2}>マッピング</Title>
+          <FileInput
+            accept="text/csv"
+            placeholder="CSVファイルを選択"
+            value={mappingFile}
+            onChange={handleMappingFileSelect}
           />
-        )}
-      </VStack>
-      <VStack mb={2}>
-        <SectionTitle>現行給与</SectionTitle>
-        <FileUploader
-          acceptFileTypes={["text/csv"]}
-          fileLabel=""
-          multiple={false}
-          onFileSelect={handleCurrentSalaryFileSelect}
-        />
-        {currentSalaryFile && <Text>{currentSalaryFile.name}</Text>}
-        {currentSalaryData.length > 0 && (
-          <>
-            <CheckBox
-              name="filter"
-              value="filter"
-              checked={filterApplied}
-              onChange={() => setFilterApplied(!filterApplied)}
-            >
-              フィルターを適用
-            </CheckBox>
-            {filterApplied && (
-              <HStack>
-                <SingleComboBox
-                  options={currentSalaryColumns.map((col) => ({
-                    id: col,
-                    label: col,
-                  }))}
-                  value={{
-                    id: filterColumn || "",
-                    label: filterColumn || "",
-                  }}
-                  onChange={(value) => {
-                    setFilterColumn(String(value?.id) || null);
-                    setFilterValues([]); // カラム変更時にフィルター値をリセット
-                  }}
-                />
-                <MultiComboBox
-                  options={availableFilterValues.map((value) => ({
-                    id: value,
-                    label: value,
-                  }))}
-                  values={
-                    filterValues
-                      ? filterValues.map((value) => ({
-                          id: value,
-                          label: value,
-                        }))
-                      : []
-                  }
-                  width="large"
-                  onChange={(value) =>
-                    setFilterValues(value?.map((v) => String(v.id)) || [])
-                  }
-                />
-              </HStack>
-            )}
-            <Table
-              columns={currentSalaryColumns.map((col) => ({
-                name: col,
-                label: col,
-                content: col,
-                align: "left" as const,
-                widthRem: 6,
-              }))}
-              rows={filteredCurrentSalaryData.map((item) => ({
-                cells: currentSalaryColumns.map((col) => ({
-                  columnName: col,
-                  content: item[col] || "",
-                })),
-              }))}
-              fixMode="header"
-              verticalBorder="all"
-              outerBorder="all"
-            />
-          </>
-        )}
-      </VStack>
-      <VStack mb={2}>
-        <SectionTitle>プロンプト</SectionTitle>
-        {generatedPrompt && (
-          <>
-            <Button
-              primary
-              onClick={() => {
-                navigator.clipboard.writeText(generatedPrompt);
-                setShowCopiedMessage(true);
-              }}
-            >
-              クリップボードにコピー
-            </Button>
-            <TextArea height={20} value={generatedPrompt} />
-          </>
-        )}
-      </VStack>
-      {showCopiedMessage && (
-        <FloatingMessageBlock
-          onClose={() => setShowCopiedMessage(false)}
-          success
-        >
-          クリップボードにコピーしました
-        </FloatingMessageBlock>
-      )}
-    </ContentsBase>
+          {mappingFile && <Text>{mappingFile.name}</Text>}
+          {overtimeData.length > 0 && (
+            <Table striped highlightOnHover withTableBorder withColumnBorders>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>freee</Table.Th>
+                  <Table.Th>現行給与</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {overtimeData.map((item, index) => (
+                  <Table.Tr key={index}>
+                    <Table.Td>{item.freee}</Table.Td>
+                    <Table.Td>{item.current}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          )}
+        </Stack>
+
+        <Stack gap="md">
+          <Title order={2}>現行給与</Title>
+          <FileInput
+            accept="text/csv"
+            placeholder="CSVファイルを選択"
+            value={currentSalaryFile}
+            onChange={handleCurrentSalaryFileSelect}
+          />
+          {currentSalaryFile && <Text>{currentSalaryFile.name}</Text>}
+          {currentSalaryData.length > 0 && (
+            <>
+              <Checkbox
+                label="フィルターを適用"
+                checked={filterApplied}
+                onChange={(event) => setFilterApplied(event.currentTarget.checked)}
+              />
+              {filterApplied && (
+                <Group>
+                  <Select
+                    placeholder="カラムを選択"
+                    data={currentSalaryColumns}
+                    value={filterColumn}
+                    onChange={(value) => {
+                      setFilterColumn(value);
+                      setFilterValues([]); // カラム変更時にフィルター値をリセット
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <MultiSelect
+                    placeholder="値を選択"
+                    data={availableFilterValues}
+                    value={filterValues}
+                    onChange={setFilterValues}
+                    style={{ flex: 2 }}
+                  />
+                </Group>
+              )}
+              <Table striped highlightOnHover withTableBorder withColumnBorders horizontalSpacing="md">
+                <Table.Thead>
+                  <Table.Tr>
+                    {currentSalaryColumns.map((col) => (
+                      <Table.Th key={col} style={{ minWidth: '150px' }}>{col}</Table.Th>
+                    ))}
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {filteredCurrentSalaryData.map((item, index) => (
+                    <Table.Tr key={index}>
+                      {currentSalaryColumns.map((col) => (
+                        <Table.Td key={col} style={{ minWidth: '150px' }}>{item[col] || ""}</Table.Td>
+                      ))}
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </>
+          )}
+        </Stack>
+
+        <Stack gap="md">
+          <Title order={2}>プロンプト</Title>
+          {generatedPrompt && (
+            <>
+              <Button
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedPrompt);
+                  notifications.show({
+                    title: '成功',
+                    message: 'クリップボードにコピーしました',
+                    color: 'green',
+                  });
+                }}
+              >
+                クリップボードにコピー
+              </Button>
+              <Textarea
+                value={generatedPrompt}
+                rows={20}
+                readOnly
+              />
+            </>
+          )}
+        </Stack>
+      </Stack>
+    </Container>
   );
 }
 
