@@ -14,15 +14,12 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMemo, useState } from "react";
-
-type OvertimeData = {
-  freee: string;
-  current: string;
-};
-
-type CurrentSalaryData = {
-  [key: string]: string;
-};
+import {
+  type CurrentSalaryData,
+  type OvertimeData,
+  parseCurrentSalaryFile,
+  parseMappingFile,
+} from "./csvParser";
 
 // Markdown KV形式のテキストを生成
 const generatePrompt = (
@@ -93,54 +90,24 @@ function App() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const lines = text.split("\n");
+      const result = parseMappingFile(text);
 
-      // 各行をカンマで分割し、1~3列目のみに絞る
-      const records = lines.map((line) => {
-        const columns = line.split(",");
-        return columns.slice(0, 3);
-      });
-
-      // 「割増賃金」の行を探す
-      let startIndex = -1;
-      for (let i = 0; i < records.length; i++) {
-        if (records[i][0] && records[i][0].includes("割増賃金")) {
-          startIndex = i;
-          break;
-        }
+      if (result.success) {
+        setOvertimeData(result.data);
+        notifications.show({
+          title: "成功",
+          message: result.message,
+          color: "green",
+        });
+      } else {
+        setMappingFile(null);
+        setOvertimeData([]);
+        notifications.show({
+          title: "エラー",
+          message: result.error,
+          color: "red",
+        });
       }
-
-      if (startIndex === -1) {
-        console.log("「割増賃金」の行が見つかりませんでした");
-        return;
-      }
-
-      // 1列目に「欠勤控除」がある行を探す
-      let endIndex = -1;
-      for (let i = startIndex + 1; i < records.length; i++) {
-        if (records[i][0] && records[i][0].includes("欠勤控除")) {
-          endIndex = i;
-          break;
-        }
-      }
-
-      if (endIndex === -1) {
-        endIndex = records.length;
-      }
-
-      // 範囲のデータを抽出（2,3列目）
-      const result: OvertimeData[] = [];
-      for (let i = startIndex; i < endIndex; i++) {
-        const row = records[i];
-        if (row[1] || row[2]) {
-          result.push({
-            freee: row[1] || "",
-            current: row[2] || "",
-          });
-        }
-      }
-
-      setOvertimeData(result);
     };
 
     reader.readAsText(file);
@@ -153,35 +120,26 @@ function App() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const lines = text.split("\n").filter((line) => line.trim());
+      const result = parseCurrentSalaryFile(text);
 
-      if (lines.length < 2) {
-        console.log("CSVファイルが空またはヘッダーのみです");
-        return;
-      }
-
-      const headerLine = lines[0].replace(/^\s*\d+→/, ""); // 行番号を削除
-      const headers = headerLine.split(",");
-      setCurrentSalaryColumns(headers);
-
-      const data: CurrentSalaryData[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].replace(/^\s*\d+→/, ""); // 行番号を削除
-        const values = line.split(",");
-
-        // 空行をスキップ
-        if (values.every((v) => !v.trim())) {
-          continue;
-        }
-
-        const row: CurrentSalaryData = {};
-        headers.forEach((header, index) => {
-          row[header] = values[index]?.replace(/"/g, "") || "";
+      if (result.success) {
+        setCurrentSalaryData(result.data.data);
+        setCurrentSalaryColumns(result.data.columns);
+        notifications.show({
+          title: "成功",
+          message: result.message,
+          color: "green",
         });
-        data.push(row);
+      } else {
+        setCurrentSalaryFile(null);
+        setCurrentSalaryData([]);
+        setCurrentSalaryColumns([]);
+        notifications.show({
+          title: "エラー",
+          message: result.error,
+          color: "red",
+        });
       }
-
-      setCurrentSalaryData(data);
     };
 
     reader.readAsText(file);

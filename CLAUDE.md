@@ -1,4 +1,4 @@
-read and edit App.tsx
+read and edit src/App.tsx
 
 use only Mantine UI. no premitive elements.
 
