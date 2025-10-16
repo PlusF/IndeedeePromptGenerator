@@ -11,10 +11,47 @@ export type ParseResult<T> =
   | { success: true; data: T; message: string }
   | { success: false; error: string };
 
+// CSVの1行をパースする関数（引用符とカンマを正しく処理）
+const parseCsvLine = (line: string): string[] => {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    const nextChar = line[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // 2つ連続の引用符はエスケープされた引用符
+        current += '"';
+        i++; // 次の引用符をスキップ
+      } else {
+        // 引用符の開始または終了
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      // 引用符の外のカンマはフィールドの区切り
+      result.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  // 最後のフィールドを追加
+  result.push(current);
+
+  return result;
+};
+
 // マッピングファイルを解析する関数
 export const parseMappingFile = (
   text: string
-): ParseResult<OvertimeData[]> => {
+): ParseResult<{
+  overtimeData: OvertimeData[];
+  employeeCodeColumn: string;
+}> => {
   try {
     // ファイルが空でないかチェック
     if (!text || text.trim().length === 0) {
@@ -27,11 +64,23 @@ export const parseMappingFile = (
 
     const lines = text.split("\n");
 
-    // 各行をカンマで分割し、1~3列目のみに絞る
+    // 各行をパースし、1~3列目のみに絞る
     const records = lines.map((line) => {
-      const columns = line.split(",");
+      const columns = parseCsvLine(line);
       return columns.slice(0, 3);
     });
+
+    // 「従業員番号」の行を探してカラム名を取得
+    let employeeCodeColumn = "従業員番号"; // デフォルト値
+    for (let i = 0; i < records.length; i++) {
+      if (records[i][1] && records[i][1].includes("従業員番号")) {
+        const currentColumn = records[i][2]?.trim();
+        if (currentColumn) {
+          employeeCodeColumn = currentColumn;
+        }
+        break;
+      }
+    }
 
     // 「割増賃金」の行を探す
     let startIndex = -1;
@@ -86,7 +135,7 @@ export const parseMappingFile = (
 
     return {
       success: true,
-      data: result,
+      data: { overtimeData: result, employeeCodeColumn },
       message: `マッピングファイルを読み込みました (${result.length}件)`,
     };
   } catch {
@@ -125,8 +174,7 @@ export const parseCurrentSalaryFile = (
       };
     }
 
-    const headerLine = lines[0].replace(/^\s*\d+→/, ""); // 行番号を削除
-    const headers = headerLine.split(",");
+    const headers = parseCsvLine(lines[0]);
 
     // ヘッダーの重複チェック
     const headerSet = new Set(headers);
@@ -138,23 +186,15 @@ export const parseCurrentSalaryFile = (
       const uniqueDuplicates = Array.from(new Set(duplicates));
       return {
         success: false,
-        error: `現行給与ファイルのヘッダーに重複があります: ${uniqueDuplicates.join(", ")}。正しいCSVファイルを選択してください。`,
-      };
-    }
-
-    // 「従業員コード」カラムが存在するかチェック
-    if (!headers.includes("従業員コード")) {
-      return {
-        success: false,
-        error:
-          "現行給与ファイルに「従業員コード」カラムが見つかりませんでした。「②現行給与」シートからエクスポートしたCSVファイルを選択してください。",
+        error: `現行給与ファイルのヘッダーに重複があります: ${uniqueDuplicates.join(
+          ", "
+        )}。正しいCSVファイルを選択してください。`,
       };
     }
 
     const data: CurrentSalaryData[] = [];
     for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].replace(/^\s*\d+→/, ""); // 行番号を削除
-      const values = line.split(",");
+      const values = parseCsvLine(lines[i]);
 
       // 空行をスキップ
       if (values.every((v) => !v.trim())) {
@@ -163,7 +203,7 @@ export const parseCurrentSalaryFile = (
 
       const row: CurrentSalaryData = {};
       headers.forEach((header, index) => {
-        row[header] = values[index]?.replace(/"/g, "") || "";
+        row[header] = values[index] || "";
       });
       data.push(row);
     }

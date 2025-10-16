@@ -26,7 +26,8 @@ const generatePrompt = (
   year: number,
   month: number,
   overtimeData: OvertimeData[],
-  currentSalaryData: CurrentSalaryData[]
+  currentSalaryData: CurrentSalaryData[],
+  employeeCodeColumn: string
 ) => {
   const markdownParts: string[] = [];
 
@@ -50,7 +51,7 @@ const generatePrompt = (
   );
 
   currentSalaryData.forEach((employee) => {
-    const employeeCode = employee["従業員コード"] || "";
+    const employeeCode = employee[employeeCodeColumn] || "";
 
     markdownParts.push(`# 従業員番号: ${employeeCode}\n`);
 
@@ -73,6 +74,8 @@ function App() {
   const [mappingFile, setMappingFile] = useState<File | null>(null);
   const [currentSalaryFile, setCurrentSalaryFile] = useState<File | null>(null);
   const [overtimeData, setOvertimeData] = useState<OvertimeData[]>([]);
+  const [employeeCodeColumn, setEmployeeCodeColumn] =
+    useState<string>("従業員番号");
   const [currentSalaryData, setCurrentSalaryData] = useState<
     CurrentSalaryData[]
   >([]);
@@ -93,7 +96,8 @@ function App() {
       const result = parseMappingFile(text);
 
       if (result.success) {
-        setOvertimeData(result.data);
+        setOvertimeData(result.data.overtimeData);
+        setEmployeeCodeColumn(result.data.employeeCodeColumn);
         notifications.show({
           title: "成功",
           message: result.message,
@@ -102,6 +106,7 @@ function App() {
       } else {
         setMappingFile(null);
         setOvertimeData([]);
+        setEmployeeCodeColumn("従業員番号");
         notifications.show({
           title: "エラー",
           message: result.error,
@@ -175,9 +180,16 @@ function App() {
       parseInt(year),
       parseInt(month),
       overtimeData,
-      filteredCurrentSalaryData
+      filteredCurrentSalaryData,
+      employeeCodeColumn
     );
-  }, [year, month, overtimeData, filteredCurrentSalaryData]);
+  }, [
+    year,
+    month,
+    overtimeData,
+    filteredCurrentSalaryData,
+    employeeCodeColumn,
+  ]);
 
   return (
     <Container size="xl" py="xl">
