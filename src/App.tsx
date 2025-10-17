@@ -15,8 +15,8 @@ import {
 import { notifications } from "@mantine/notifications";
 import { useMemo, useState } from "react";
 import {
+  type ColumnMapping,
   type CurrentSalaryData,
-  type OvertimeData,
   parseCurrentSalaryFile,
   parseMappingFile,
 } from "./csvParser";
@@ -25,9 +25,11 @@ import {
 const generatePrompt = (
   year: number,
   month: number,
-  overtimeData: OvertimeData[],
+  overtimeData: ColumnMapping[],
   currentSalaryData: CurrentSalaryData[],
-  employeeCodeColumn: string
+  employeeCode: ColumnMapping,
+  fixedOvertimeAllowance: ColumnMapping,
+  fixedOvertimeExcess: ColumnMapping
 ) => {
   const markdownParts: string[] = [];
 
@@ -42,18 +44,37 @@ const generatePrompt = (
     }
   });
 
+  // 固定残業代と固定残業超過もマッピングに追加
+  if (
+    fixedOvertimeAllowance.current.trim() &&
+    fixedOvertimeAllowance.freee.trim()
+  ) {
+    currentToFreeeMap.set(
+      fixedOvertimeAllowance.current,
+      fixedOvertimeAllowance.freee
+    );
+  }
+  if (fixedOvertimeExcess.current.trim() && fixedOvertimeExcess.freee.trim()) {
+    currentToFreeeMap.set(
+      fixedOvertimeExcess.current,
+      fixedOvertimeExcess.freee
+    );
+  }
+
   const extractColumns = Array.from(
     new Set(
-      overtimeData
-        .map((item) => item.current)
-        .filter((col) => col.trim() !== "")
+      [
+        ...overtimeData.map((item) => item.current),
+        fixedOvertimeAllowance.current,
+        fixedOvertimeExcess.current,
+      ].filter((col) => col.trim() !== "")
     )
   );
 
   currentSalaryData.forEach((employee) => {
-    const employeeCode = employee[employeeCodeColumn] || "";
+    const employeeCodeValue = employee[employeeCode.current] || "";
 
-    markdownParts.push(`# 従業員番号: ${employeeCode}\n`);
+    markdownParts.push(`# 従業員番号: ${employeeCodeValue}\n`);
 
     // マッピングで指定されたカラムを抽出
     extractColumns.forEach((colName) => {
@@ -73,9 +94,16 @@ function App() {
   const [month, setMonth] = useState<string>("10");
   const [mappingFile, setMappingFile] = useState<File | null>(null);
   const [currentSalaryFile, setCurrentSalaryFile] = useState<File | null>(null);
-  const [overtimeData, setOvertimeData] = useState<OvertimeData[]>([]);
-  const [employeeCodeColumn, setEmployeeCodeColumn] =
-    useState<string>("従業員番号");
+  const [overtimeData, setOvertimeData] = useState<ColumnMapping[]>([]);
+  const [employeeCode, setEmployeeCode] = useState<ColumnMapping>({
+    freee: "",
+    current: "",
+  });
+  const [fixedOvertimeAllowance, setFixedOvertimeAllowance] =
+    useState<ColumnMapping>({ freee: "", current: "" });
+  const [fixedOvertimeExcess, setFixedOvertimeExcess] = useState<ColumnMapping>(
+    { freee: "", current: "" }
+  );
   const [currentSalaryData, setCurrentSalaryData] = useState<
     CurrentSalaryData[]
   >([]);
@@ -97,7 +125,9 @@ function App() {
 
       if (result.success) {
         setOvertimeData(result.data.overtimeData);
-        setEmployeeCodeColumn(result.data.employeeCodeColumn);
+        setEmployeeCode(result.data.employeeCode);
+        setFixedOvertimeAllowance(result.data.fixedOvertimeAllowance);
+        setFixedOvertimeExcess(result.data.fixedOvertimeExcess);
         notifications.show({
           title: "成功",
           message: result.message,
@@ -106,7 +136,9 @@ function App() {
       } else {
         setMappingFile(null);
         setOvertimeData([]);
-        setEmployeeCodeColumn("従業員番号");
+        setEmployeeCode({ freee: "", current: "" });
+        setFixedOvertimeAllowance({ freee: "", current: "" });
+        setFixedOvertimeExcess({ freee: "", current: "" });
         notifications.show({
           title: "エラー",
           message: result.error,
@@ -181,15 +213,21 @@ function App() {
       parseInt(month),
       overtimeData,
       filteredCurrentSalaryData,
-      employeeCodeColumn
+      employeeCode,
+      fixedOvertimeAllowance,
+      fixedOvertimeExcess
     );
   }, [
     year,
     month,
     overtimeData,
     filteredCurrentSalaryData,
-    employeeCodeColumn,
+    employeeCode,
+    fixedOvertimeAllowance,
+    fixedOvertimeExcess,
   ]);
+
+  console.log(fixedOvertimeAllowance, fixedOvertimeExcess);
 
   return (
     <Container size="xl" py="xl">
@@ -242,12 +280,30 @@ function App() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
+                {employeeCode.current && (
+                  <Table.Tr>
+                    <Table.Td>{employeeCode.freee}</Table.Td>
+                    <Table.Td>{employeeCode.current}</Table.Td>
+                  </Table.Tr>
+                )}
                 {overtimeData.map((item, index) => (
                   <Table.Tr key={index}>
                     <Table.Td>{item.freee}</Table.Td>
                     <Table.Td>{item.current}</Table.Td>
                   </Table.Tr>
                 ))}
+                {fixedOvertimeAllowance.current && (
+                  <Table.Tr>
+                    <Table.Td>{fixedOvertimeAllowance.freee}</Table.Td>
+                    <Table.Td>{fixedOvertimeAllowance.current}</Table.Td>
+                  </Table.Tr>
+                )}
+                {fixedOvertimeExcess.current && (
+                  <Table.Tr>
+                    <Table.Td>{fixedOvertimeExcess.freee}</Table.Td>
+                    <Table.Td>{fixedOvertimeExcess.current}</Table.Td>
+                  </Table.Tr>
+                )}
               </Table.Tbody>
             </Table>
           )}

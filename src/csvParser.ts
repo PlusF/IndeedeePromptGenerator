@@ -1,4 +1,4 @@
-export type OvertimeData = {
+export type ColumnMapping = {
   freee: string;
   current: string;
 };
@@ -49,8 +49,10 @@ const parseCsvLine = (line: string): string[] => {
 export const parseMappingFile = (
   text: string
 ): ParseResult<{
-  overtimeData: OvertimeData[];
-  employeeCodeColumn: string;
+  overtimeData: ColumnMapping[];
+  employeeCode: ColumnMapping;
+  fixedOvertimeAllowance: ColumnMapping;
+  fixedOvertimeExcess: ColumnMapping;
 }> => {
   try {
     // ファイルが空でないかチェック
@@ -71,13 +73,37 @@ export const parseMappingFile = (
     });
 
     // 「従業員番号」の行を探してカラム名を取得
-    let employeeCodeColumn = "従業員番号"; // デフォルト値
+    let employeeCode: ColumnMapping = { freee: "", current: "" };
     for (let i = 0; i < records.length; i++) {
       if (records[i][1] && records[i][1].includes("従業員番号")) {
-        const currentColumn = records[i][2]?.trim();
-        if (currentColumn) {
-          employeeCodeColumn = currentColumn;
-        }
+        employeeCode = {
+          freee: records[i][1]?.trim() || "",
+          current: records[i][2]?.trim() || "",
+        };
+        break;
+      }
+    }
+
+    // 「固定残業代」の行を探してカラム名を取得
+    let fixedOvertimeAllowance: ColumnMapping = { freee: "", current: "" };
+    for (let i = 0; i < records.length; i++) {
+      if (records[i][0] && records[i][0].includes("固定残業代")) {
+        fixedOvertimeAllowance = {
+          freee: records[i][1]?.trim() || "",
+          current: records[i][2]?.trim() || "",
+        };
+        break;
+      }
+    }
+
+    // 「固定残業超過」の行を探してカラム名を取得
+    let fixedOvertimeExcess: ColumnMapping = { freee: "", current: "" };
+    for (let i = 0; i < records.length; i++) {
+      if (records[i][0] && records[i][0].includes("固定残業超過")) {
+        fixedOvertimeExcess = {
+          freee: records[i][1]?.trim() || "",
+          current: records[i][2]?.trim() || "",
+        };
         break;
       }
     }
@@ -113,7 +139,7 @@ export const parseMappingFile = (
     }
 
     // 範囲のデータを抽出（2,3列目）
-    const result: OvertimeData[] = [];
+    const result: ColumnMapping[] = [];
     for (let i = startIndex; i < endIndex; i++) {
       const row = records[i];
       if (row[1] || row[2]) {
@@ -135,7 +161,12 @@ export const parseMappingFile = (
 
     return {
       success: true,
-      data: { overtimeData: result, employeeCodeColumn },
+      data: {
+        overtimeData: result,
+        employeeCode,
+        fixedOvertimeAllowance,
+        fixedOvertimeExcess,
+      },
       message: `マッピングファイルを読み込みました (${result.length}件)`,
     };
   } catch {
