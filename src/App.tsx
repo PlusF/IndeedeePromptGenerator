@@ -113,6 +113,9 @@ function App() {
   const [filterApplied, setFilterApplied] = useState<boolean>(false);
   const [filterColumn, setFilterColumn] = useState<string | null>(null);
   const [filterValues, setFilterValues] = useState<string[]>([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(
+    new Set()
+  );
 
   // マッピングファイルを処理する関数
   const handleMappingFileSelect = (file: File | null) => {
@@ -182,6 +185,29 @@ function App() {
     reader.readAsText(file);
   };
 
+  const handleToggleEmployee = (empCode: string) => {
+    setSelectedEmployees((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(empCode)) {
+        newSet.delete(empCode);
+      } else {
+        newSet.add(empCode);
+      }
+      return newSet;
+    });
+  };
+
+  const handleToggleAll = () => {
+    if (selectedEmployees.size === filteredCurrentSalaryData.length) {
+      setSelectedEmployees(new Set());
+    } else {
+      const allEmployeeCodes = filteredCurrentSalaryData.map(
+        (row) => row[employeeCode.current] || ""
+      );
+      setSelectedEmployees(new Set(allEmployeeCodes));
+    }
+  };
+
   const availableFilterValues = useMemo(() => {
     if (!filterColumn || currentSalaryData.length === 0) {
       return [];
@@ -204,15 +230,25 @@ function App() {
     );
   }, [filterApplied, filterColumn, filterValues, currentSalaryData]);
 
+  const selectedCurrentSalaryData = useMemo(() => {
+    if (selectedEmployees.size === 0) {
+      return filteredCurrentSalaryData;
+    }
+    return filteredCurrentSalaryData.filter((row) => {
+      const empCode = row[employeeCode.current] || "";
+      return selectedEmployees.has(empCode);
+    });
+  }, [filteredCurrentSalaryData, selectedEmployees, employeeCode]);
+
   const generatedPrompt = useMemo(() => {
-    if (overtimeData.length === 0 || filteredCurrentSalaryData.length === 0) {
+    if (overtimeData.length === 0 || selectedCurrentSalaryData.length === 0) {
       return "";
     }
     return generatePrompt(
       parseInt(year),
       parseInt(month),
       overtimeData,
-      filteredCurrentSalaryData,
+      selectedCurrentSalaryData,
       employeeCode,
       fixedOvertimeAllowance,
       fixedOvertimeExcess
@@ -221,7 +257,7 @@ function App() {
     year,
     month,
     overtimeData,
-    filteredCurrentSalaryData,
+    selectedCurrentSalaryData,
     employeeCode,
     fixedOvertimeAllowance,
     fixedOvertimeExcess,
@@ -359,6 +395,21 @@ function App() {
               >
                 <Table.Thead>
                   <Table.Tr>
+                    <Table.Th style={{ width: "60px" }}>
+                      <Checkbox
+                        checked={
+                          filteredCurrentSalaryData.length > 0 &&
+                          selectedEmployees.size ===
+                            filteredCurrentSalaryData.length
+                        }
+                        indeterminate={
+                          selectedEmployees.size > 0 &&
+                          selectedEmployees.size <
+                            filteredCurrentSalaryData.length
+                        }
+                        onChange={handleToggleAll}
+                      />
+                    </Table.Th>
                     {currentSalaryColumns.map((col) => (
                       <Table.Th key={col} style={{ minWidth: "150px" }}>
                         {col}
@@ -367,15 +418,24 @@ function App() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {filteredCurrentSalaryData.map((item, index) => (
-                    <Table.Tr key={index}>
-                      {currentSalaryColumns.map((col) => (
-                        <Table.Td key={col} style={{ minWidth: "150px" }}>
-                          {item[col] || ""}
+                  {filteredCurrentSalaryData.map((item, index) => {
+                    const empCode = item[employeeCode.current] || "";
+                    return (
+                      <Table.Tr key={index}>
+                        <Table.Td>
+                          <Checkbox
+                            checked={selectedEmployees.has(empCode)}
+                            onChange={() => handleToggleEmployee(empCode)}
+                          />
                         </Table.Td>
-                      ))}
-                    </Table.Tr>
-                  ))}
+                        {currentSalaryColumns.map((col) => (
+                          <Table.Td key={col} style={{ minWidth: "150px" }}>
+                            {item[col] || ""}
+                          </Table.Td>
+                        ))}
+                      </Table.Tr>
+                    );
+                  })}
                 </Table.Tbody>
               </Table>
             </>
